@@ -1,15 +1,39 @@
-//go:build exclude
-#include <string.h>
-#include <unistd.h>
+// go:build exclude
+#include <fcntl.h>
+#include <pthread.h>
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/wait.h>
+#include <unistd.h>
 
-int main() {
-    pid_t pid = getpid();
-    printf("%d\n", pid);
-    for (;;) {
-        write(1, "noop more", strlen("noop more"));
-        write(2, "stderr more", strlen("stderr more"));
-        sleep(1);
+#define debug(...)                                                             \
+  do {                                                                         \
+    char buffer[BUFSIZ];                                                       \
+    sprintf(buffer, "[%d] ", getpid());                                        \
+    size_t n = write(STDOUT_FILENO, buffer, strlen(buffer));                   \
+    memset(buffer, 0, n);                                                      \
+    sprintf(buffer, __VA_ARGS__);                                              \
+    write(STDOUT_FILENO, buffer, strlen(buffer));                              \
+    write(STDOUT_FILENO, "\n", sizeof(char) * 2);                              \
+  } while (0)
+
+int main(int argc, char **argv) {
+  if (argc > 1 && strncmp(argv[1], "--fork", strlen("--fork")) == 0) {
+    pid_t pid = fork();
+    if (pid == 0) {
+      execl("./wait", (char *)NULL); // TODO: join pipes
     }
-    return 0;
+
+    if (pid == -1) {
+      perror("failed");
+    }
+  }
+
+  for (;;) {
+    debug("noop");
+    sleep(2);
+  }
+
+  return 0;
 }
